@@ -1,5 +1,8 @@
-import { signInWithPopup, GoogleAuthProvider, getAuth } from 'firebase/auth'
-import { initializeApp } from 'firebase/app'
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.1/firebase-app.js'
+import {
+	getAuth,
+	GoogleAuthProvider
+} from 'https://www.gstatic.com/firebasejs/10.12.1/firebase-auth.js'
 const firebaseConfig = {
 	apiKey: 'AIzaSyDnY6QfGkomnyKr6tw3qTsfza1Pr3x2vbk',
 	authDomain: 'interviewcopilot-443620.firebaseapp.com',
@@ -23,16 +26,42 @@ const PARENT_FRAME = document.location.ancestorOrigins[0]
 // https://console.firebase.google.com/project/_/authentication/providers
 const PROVIDER = new GoogleAuthProvider()
 
-function sendResponse(result) {
+function sendPlain(result) {
+	console.log(result)
 	globalThis.parent.self.postMessage(JSON.stringify(result), PARENT_FRAME)
 }
 
+async function sendSignInRes(result) {
+	console.log(auth.currentUser)
+	const token = await auth.currentUser.getIdToken(false)
+	globalThis.parent.self.postMessage(
+		JSON.stringify({
+			name: result.user.displayName,
+			email: result.user.email,
+			photo: result.user.photoURL,
+			token: token
+		}),
+		PARENT_FRAME
+	)
+}
+
 globalThis.addEventListener('message', function ({ data }) {
+	console.log('receive some message', data)
+	console.log(auth)
 	if (data.initAuth) {
 		// Opens the Google sign-in page in a popup, inside of an iframe in the
 		// extension's offscreen document.
 		// To centralize logic, all respones are forwarded to the parent frame,
 		// which goes on to forward them to the extension's service worker.
-		signInWithPopup(auth, PROVIDER).then(sendResponse).catch(sendResponse)
+		signInWithPopup(auth, PROVIDER).then(sendSignInRes).catch(sendPlain)
+	}
+	if (data.logout) {
+		signOut(auth)
+			.then(() => {
+				sendPlain({ logout: 'success' })
+			})
+			.catch(() => {
+				sendPlain({ logout: 'fail' })
+			})
 	}
 })
